@@ -144,10 +144,23 @@ def _suggestions_for(spellchecker: SpellChecker, word: str) -> list[str]:
     candidates = spellchecker.candidates(word) or set()
     ranked = sorted(
         candidates,
-        key=lambda candidate: spellchecker.word_frequency.get(candidate, 0),
+        key=lambda candidate: _frequency(spellchecker.word_frequency, candidate),
         reverse=True,
     )
     return ranked[:MAX_SUGGESTIONS]
+
+
+def _frequency(word_frequency: object, candidate: str) -> int:
+    """How often `candidate` occurs in the corpus, or 0 when it is unknown.
+
+    `pyspellchecker` exposes `word_frequency` as a `WordFrequency`, which is a
+    mapping but not a `dict` and has no `get`, so it is indexed directly and a
+    `KeyError` marks a word the dictionary does not contain.
+    """
+    try:
+        return word_frequency[candidate]
+    except KeyError:
+        return 0
 
 
 def _context(line: str, start: int) -> str:
