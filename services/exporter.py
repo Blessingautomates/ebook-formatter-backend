@@ -69,6 +69,11 @@ _FONT_ALLOWED_RE = re.compile(r"[^A-Za-z0-9 \-]")
 MIN_FONT_SIZE = 6.0
 MAX_FONT_SIZE = 24.0
 
+# The trim the print templates are authored for. This is the default value of
+# ExportRequest.trim_size, so it has to be bound before that dataclass is
+# defined: a default is evaluated while the class body runs, not at call time.
+DEFAULT_TRIM = "6x9"
+
 
 class ExportError(ValueError):
     """The requested export cannot be produced."""
@@ -142,8 +147,6 @@ TRIM_SIZES: dict[str, TrimSize] = {
     # A5 is 148x210mm.
     "a5": TrimSize(width=5.827, height=8.268, inner=0.85, outer=0.5, top=0.72, bottom=0.67),
 }
-
-DEFAULT_TRIM = "6x9"
 
 
 # --------------------------------------------------------------------- public
