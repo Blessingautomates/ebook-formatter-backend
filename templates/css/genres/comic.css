@@ -1,0 +1,88 @@
+/* Comic: a comic or graphic-novel SCRIPT, not a laid-out comic page.
+ * Panel headings, character cues, dialogue blocks, captions and SFX, set in a
+ * monospaced face so the page reads like a shooting script. */
+
+.book[data-genre="comic"] {
+  --paragraph-indent: 0;
+  --line-height: 1.45;
+  --base-font-size: 10.5pt;
+  font-family: var(--book-font, "DejaVu Sans Mono", "Courier New", monospace);
+  text-align: left;
+  hyphens: none;
+}
+
+.book[data-genre="comic"] h1 {
+  padding-top: 1in;
+  font-size: 1.3em;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Page headings, e.g. "PAGE ONE". */
+.book[data-genre="comic"] h2 {
+  font-size: 1.05em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 1.6em 0 0.7em;
+  border-bottom: 0.5pt solid #999;
+  padding-bottom: 0.2em;
+}
+
+/* Panel headings, e.g. "PANEL 3". */
+.book[data-genre="comic"] h3 {
+  font-size: 1em;
+  font-weight: bold;
+  text-transform: uppercase;
+  margin: 1.1em 0 0.4em;
+}
+
+.book[data-genre="comic"] p {
+  margin: 0 0 0.6em 0;
+  text-indent: 0;
+}
+
+/* Panel description: the visual instruction, indented under its heading. */
+.book[data-genre="comic"] .panel-description {
+  margin-left: 1.4em;
+  font-style: italic;
+}
+
+/* Character cue sits above the line, in caps, indented like a screenplay. */
+.book[data-genre="comic"] .character {
+  margin: 0.8em 0 0 3em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* The spoken line, centred under its cue. */
+.book[data-genre="comic"] .dialogue {
+  margin: 0 3em 0.6em 3em;
+}
+
+/* Caption boxes and sound effects. */
+.book[data-genre="comic"] .caption {
+  margin-left: 1.4em;
+  text-transform: uppercase;
+  font-size: 0.95em;
+}
+
+.book[data-genre="comic"] .sfx {
+  text-align: center;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin: 0.8em 0;
+}
+
+/* Letterer and art notes. */
+.book[data-genre="comic"] .note {
+  margin-left: 1.4em;
+  font-size: 0.9em;
+  color: #444;
+}
+
+.book[data-genre="comic"] hr::after {
+  content: "---";
+  letter-spacing: 0;
+}

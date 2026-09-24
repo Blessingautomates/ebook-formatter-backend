@@ -1,0 +1,140 @@
+/* Journal: an article in a scholarly periodical.
+ * Title block, abstract, keywords, numbered sections, and a citation footer. */
+
+.book[data-genre="journal"] {
+  --paragraph-indent: 1.2em;
+  --line-height: 1.4;
+  --base-font-size: 10pt;
+  font-family: var(--book-font, "Times New Roman", Times, serif);
+  text-align: justify;
+}
+
+/* An article does not open on a recto with a big drop; it starts on page one. */
+.book[data-genre="journal"] h1 {
+  break-before: auto;
+  padding-top: 0;
+  text-align: left;
+  font-size: 1.6em;
+  line-height: 1.2;
+  margin-bottom: 0.4em;
+}
+
+.book[data-genre="journal"] .byline,
+.book[data-genre="journal"] .authors {
+  font-size: 1.05em;
+  text-align: left;
+  margin-bottom: 0.3em;
+}
+
+.book[data-genre="journal"] .affiliation {
+  font-size: 0.85em;
+  font-style: italic;
+  color: #444;
+  text-align: left;
+  margin-bottom: 1.2em;
+}
+
+/* Abstract and keywords are inset and slightly smaller than the body. */
+.book[data-genre="journal"] .abstract {
+  margin: 0 1.2em 1.2em 1.2em;
+  font-size: 0.92em;
+  line-height: 1.35;
+}
+
+.book[data-genre="journal"] .abstract p {
+  text-indent: 0;
+  margin-bottom: 0.5em;
+}
+
+.book[data-genre="journal"] .abstract::before {
+  content: "Abstract";
+  display: block;
+  font-weight: bold;
+  font-size: 1em;
+  margin-bottom: 0.3em;
+}
+
+.book[data-genre="journal"] .keywords {
+  margin: 0 1.2em 1.4em 1.2em;
+  font-size: 0.9em;
+}
+
+.book[data-genre="journal"] .keywords::before {
+  content: "Keywords: ";
+  font-weight: bold;
+}
+
+.book[data-genre="journal"] p {
+  margin: 0;
+  text-indent: 1.2em;
+}
+
+.book[data-genre="journal"] h2 {
+  counter-increment: section;
+  font-size: 1.05em;
+  margin: 1.4em 0 0.4em;
+  text-align: left;
+}
+
+.book[data-genre="journal"] h2::before {
+  content: counter(section) ". ";
+}
+
+.book[data-genre="journal"] h1 {
+  counter-reset: section;
+}
+
+.book[data-genre="journal"] blockquote {
+  margin: 0.8em 1.6em;
+  font-size: 0.92em;
+  line-height: 1.3;
+}
+
+.book[data-genre="journal"] blockquote p {
+  text-indent: 0;
+}
+
+/* Numbered reference list with hanging indents. */
+.book[data-genre="journal"] .references {
+  counter-reset: reference;
+  font-size: 0.9em;
+}
+
+.book[data-genre="journal"] .references p {
+  counter-increment: reference;
+  padding-left: 1.6em;
+  text-indent: -1.6em;
+  margin-bottom: 0.4em;
+  text-align: left;
+}
+
+.book[data-genre="journal"] .references p::before {
+  content: counter(reference) ". ";
+}
+
+/* Citation footer: DOI and page range, set small at the foot of the first page. */
+.book[data-genre="journal"] .doi {
+  font-size: 0.8em;
+  color: #555;
+  margin-top: 1.5em;
+  padding-top: 0.4em;
+  border-top: 0.5pt solid #bbb;
+  text-indent: 0;
+  text-align: left;
+}
+
+.book[data-genre="journal"] table {
+  font-size: 0.82em;
+}
+
+.book[data-genre="journal"] figure {
+  break-inside: avoid;
+  margin: 1em 0;
+  text-align: center;
+}
+
+.book[data-genre="journal"] figcaption {
+  font-size: 0.82em;
+  text-align: left;
+  margin-top: 0.3em;
+}

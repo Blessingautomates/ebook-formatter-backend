@@ -1,0 +1,268 @@
+/* Base print stylesheet: 6x9in trade trim.
+ *
+ * Establishes the page box, the mirrored binding gutter, alternating running
+ * heads, and bottom-centred page numbers. Genre sheets in genres/ layer on top
+ * of this; scripts.css handles direction and writing-system rules.
+ *
+ * Recto/verso: a right-hand (recto) page binds on its left edge, so its INNER
+ * margin is the left one. A left-hand (verso) page binds on its right edge, so
+ * its inner margin is the right one. The gutter is widened on the inner side.
+ */
+
+/* ---------------------------------------------------------------- page box */
+
+@page {
+  size: 6in 9in;
+  margin: 0.75in 0.625in 0.7in 0.625in;
+
+  @bottom-center {
+    content: counter(page);
+    font-family: var(--page-number-font, Georgia, "Times New Roman", serif);
+    font-size: 9pt;
+    color: #2b2b2b;
+    vertical-align: top;
+    padding-top: 0.18in;
+  }
+}
+
+/* Recto (odd, right-hand): gutter on the left, running head at the outer
+ * (right) edge showing the current chapter. */
+@page :right {
+  margin-left: 0.875in;
+  margin-right: 0.5in;
+
+  @top-right {
+    content: string(chapter-title);
+    font-family: var(--running-head-font, Georgia, serif);
+    font-size: 8.5pt;
+    font-variant: small-caps;
+    letter-spacing: 0.03em;
+    color: #555;
+    vertical-align: bottom;
+    padding-bottom: 0.16in;
+  }
+}
+
+/* Verso (even, left-hand): gutter on the right, running head at the outer
+ * (left) edge showing the book title. */
+@page :left {
+  margin-left: 0.5in;
+  margin-right: 0.875in;
+
+  @top-left {
+    content: string(book-title);
+    font-family: var(--running-head-font, Georgia, serif);
+    font-size: 8.5pt;
+    font-variant: small-caps;
+    letter-spacing: 0.03em;
+    color: #555;
+    vertical-align: bottom;
+    padding-bottom: 0.16in;
+  }
+}
+
+/* Opening pages carry no running head or folio. */
+@page :first {
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @bottom-center { content: none; }
+}
+
+/* Front matter numbers in lowercase roman, as is conventional. */
+@page front-matter {
+  @bottom-center { content: counter(page, lower-roman); }
+}
+
+/* ------------------------------------------------- right-to-left documents */
+
+/* An RTL book binds on the opposite edge, so the gutter and the running heads
+ * swap sides. Named pages are used because @page cannot be scoped by an
+ * ancestor selector -- the exporter puts `page: rtl-book` on the container. */
+
+@page rtl-book:right {
+  margin-left: 0.5in;
+  margin-right: 0.875in;
+
+  @top-right { content: none; }
+  @top-left {
+    content: string(chapter-title);
+    font-family: var(--running-head-font, serif);
+    font-size: 8.5pt;
+    color: #555;
+    vertical-align: bottom;
+    padding-bottom: 0.16in;
+  }
+}
+
+@page rtl-book:left {
+  margin-left: 0.875in;
+  margin-right: 0.5in;
+
+  @top-left { content: none; }
+  @top-right {
+    content: string(book-title);
+    font-family: var(--running-head-font, serif);
+    font-size: 8.5pt;
+    color: #555;
+    vertical-align: bottom;
+    padding-bottom: 0.16in;
+  }
+}
+
+/* Right-to-left page numbers sit on the outer edge, which mirrors the folio. */
+@page rtl-book:right { @bottom-left { content: counter(page); font-size: 9pt; color: #2b2b2b; } @bottom-center { content: none; } }
+@page rtl-book:left  { @bottom-right { content: counter(page); font-size: 9pt; color: #2b2b2b; } @bottom-center { content: none; } }
+
+/* ------------------------------------------------------------ body content */
+
+html {
+  font-size: var(--base-font-size, 11pt);
+}
+
+body {
+  font-family: var(--book-font, Georgia, "Times New Roman", serif);
+  line-height: var(--line-height, 1.5);
+  color: #111;
+  margin: 0;
+  padding: 0;
+  /* WeasyPrint honours this for hyphenation when a lang is set. */
+  hyphens: var(--hyphens, auto);
+}
+
+/* The container the exporter renders into. `page: rtl-book` is applied by the
+ * exporter when text_direction is rtl. */
+.book {
+  page: auto;
+}
+
+.book[dir="rtl"] {
+  page: rtl-book;
+  direction: rtl;
+  text-align: right;
+}
+
+/* Front matter gets the roman-numeral page style. */
+.front-matter {
+  page: front-matter;
+}
+
+/* --------------------------------------------------------------- structure */
+
+h1 {
+  /* Feeds the recto running head. */
+  string-set: chapter-title content();
+  break-before: right;      /* chapters open on a recto, as in print */
+  break-after: avoid;
+  font-weight: normal;
+  text-align: center;
+  margin: 0 0 1.6em 0;
+  padding-top: 1.2in;
+  font-size: 1.5em;
+  line-height: 1.25;
+}
+
+h2, h3, h4 {
+  break-after: avoid;
+  font-weight: bold;
+  line-height: 1.3;
+}
+
+h2 { font-size: 1.2em; margin: 1.4em 0 0.6em; }
+h3 { font-size: 1.05em; margin: 1.2em 0 0.5em; }
+
+/* The title page also supplies the book title for the verso running head. */
+h1.book-title {
+  string-set: book-title content(), chapter-title content();
+  padding-top: 2.2in;
+  margin-bottom: 0.4em;
+  font-size: 2em;
+  letter-spacing: 0.02em;
+}
+
+.title-page .author {
+  text-align: center;
+  font-style: italic;
+  text-indent: 0;
+  margin-top: 0.4em;
+  color: #333;
+}
+
+p {
+  margin: 0;
+  /* First-line indents with no blank line between paragraphs is the print
+   * convention; genres/fiction.css and friends adjust this. */
+  text-indent: var(--paragraph-indent, 1.2em);
+  orphans: 2;
+  widows: 2;
+}
+
+/* No indent on the first paragraph after a heading or a break. */
+h1 + p, h2 + p, h3 + p, hr + p, blockquote + p {
+  text-indent: 0;
+}
+
+blockquote {
+  margin: 1em 1.4em;
+  font-style: italic;
+}
+
+blockquote p {
+  text-indent: 0;
+}
+
+hr {
+  border: 0;
+  text-align: center;
+  margin: 1.2em 0;
+}
+
+hr::after {
+  content: "* * *";
+  letter-spacing: 0.6em;
+}
+
+/* Scene breaks written as a bare '#' or '***' line. */
+p.break {
+  text-indent: 0;
+  text-align: center;
+  margin: 1em 0;
+  letter-spacing: 0.5em;
+}
+
+img {
+  max-width: 100%;
+  /* WeasyPrint embeds at the image's own resolution; see exporter for the
+   * raster DPI note. */
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+  margin: 1em 0;
+}
+
+th, td {
+  border-bottom: 0.5pt solid #999;
+  padding: 0.35em 0.5em;
+  text-align: start;
+  text-indent: 0;
+}
+
+code, pre {
+  font-family: "DejaVu Sans Mono", "Courier New", monospace;
+  font-size: 0.88em;
+}
+
+pre {
+  white-space: pre-wrap;
+  break-inside: avoid;
+  background: #f4f4f4;
+  padding: 0.6em;
+}
+
+/* Running heads and page numbers are generated content, so hide any authored
+ * duplicates from the manuscript itself. */
+.page-number, .running-head {
+  display: none;
+}

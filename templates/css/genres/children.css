@@ -1,0 +1,80 @@
+/* Children's: early-reader and middle-grade setting.
+ * Larger type, generous leading, a shorter measure, and no hyphenation, all of
+ * which make the text easier to track for a developing reader. */
+
+.book[data-genre="children"] {
+  --paragraph-indent: 0;
+  --line-height: 1.8;
+  --base-font-size: 14pt;
+  --hyphens: none;
+  font-family: var(--book-font, "Comic Sans MS", "Trebuchet MS", Verdana, sans-serif);
+  text-align: left;
+}
+
+/* A narrower measure than the base sheet: children lose their place across a
+ * full 6in line at this type size. */
+@page :left {
+  margin-left: 0.75in;
+  margin-right: 1in;
+}
+
+@page :right {
+  margin-left: 1in;
+  margin-right: 0.75in;
+}
+
+@page rtl-book:left {
+  margin-left: 1in;
+  margin-right: 0.75in;
+}
+
+@page rtl-book:right {
+  margin-left: 0.75in;
+  margin-right: 1in;
+}
+
+.book[data-genre="children"] p {
+  margin: 0 0 1em 0;
+  text-indent: 0;
+  orphans: 2;
+  widows: 2;
+}
+
+.book[data-genre="children"] h1 {
+  break-before: right;
+  font-size: 1.6em;
+  padding-top: 1.5in;
+  margin-bottom: 1.5em;
+  text-align: center;
+}
+
+.book[data-genre="children"] h2 {
+  font-size: 1.25em;
+  margin: 1.4em 0 0.6em;
+}
+
+/* Bigger, friendlier folio. */
+.book[data-genre="children"] {
+  --page-number-font: "Trebuchet MS", Verdana, sans-serif;
+}
+
+.book[data-genre="children"] blockquote {
+  margin: 1.2em 1em;
+  font-style: normal;
+}
+
+.book[data-genre="children"] blockquote p {
+  text-indent: 0;
+}
+
+/* Illustrations sit full measure and never split across a page. */
+.book[data-genre="children"] img {
+  max-width: 100%;
+  break-inside: avoid;
+}
+
+.book[data-genre="children"] hr::after {
+  content: "\2736 \2736 \2736";   /* three six-pointed stars */
+  letter-spacing: 0.3em;
+  font-size: 0.9em;
+}

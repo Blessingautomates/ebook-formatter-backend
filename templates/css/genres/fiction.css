@@ -1,0 +1,54 @@
+/* Fiction: the default trade-novel setting.
+ * Indented first lines, no space between paragraphs, justified, serif. */
+
+.book[data-genre="fiction"] {
+  --paragraph-indent: 1.4em;
+  --line-height: 1.48;
+  --base-font-size: 11pt;
+  font-family: var(--book-font, Georgia, "Times New Roman", serif);
+  text-align: justify;
+}
+
+.book[data-genre="fiction"] p {
+  margin: 0;
+  text-indent: 1.4em;
+}
+
+/* A chapter's opening paragraph is not indented, and often opens with a
+ * raised or small-caps first few words. */
+.book[data-genre="fiction"] h1 + p,
+.book[data-genre="fiction"] hr + p,
+.book[data-genre="fiction"] p.break + p {
+  text-indent: 0;
+}
+
+.book[data-genre="fiction"] h1 + p::first-line {
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
+
+.book[data-genre="fiction"] h1 {
+  font-size: 1.45em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Scene breaks render as centred ornaments. */
+.book[data-genre="fiction"] hr::after {
+  content: "\2042";   /* asterism */
+  letter-spacing: 0;
+  font-size: 1.2em;
+}
+
+/* Dialogue and thoughts keep normal roman; italics are reserved for emphasis. */
+.book[data-genre="fiction"] em,
+.book[data-genre="fiction"] i {
+  font-style: italic;
+}
+
+.book[data-genre="fiction"] .letter,
+.book[data-genre="fiction"] blockquote {
+  margin: 1em 1.5em;
+  font-style: normal;
+  text-indent: 0;
+}

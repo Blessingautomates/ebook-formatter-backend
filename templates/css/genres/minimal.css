@@ -1,0 +1,77 @@
+/* Minimal: stripped back to the text.
+ * No running heads, no folio, no ornament, no hyphenation, ragged right. */
+
+.book[data-genre="minimal"] {
+  --paragraph-indent: 0;
+  --line-height: 1.65;
+  --base-font-size: 10.5pt;
+  font-family: var(--book-font, "Helvetica Neue", Helvetica, Arial, sans-serif);
+  text-align: left;
+  hyphens: none;
+}
+
+/* Suppress the running heads entirely by emptying the margin boxes. */
+@page :left {
+  @top-left { content: none; }
+}
+
+@page :right {
+  @top-right { content: none; }
+}
+
+/* Empty margin boxes for the RTL named pages too. */
+@page rtl-book:left {
+  @top-right { content: none; }
+}
+
+@page rtl-book:right {
+  @top-left { content: none; }
+}
+
+.book[data-genre="minimal"] p {
+  margin: 0 0 1.1em 0;
+  text-indent: 0;
+  orphans: 3;
+  widows: 3;
+}
+
+.book[data-genre="minimal"] h1 {
+  break-before: right;
+  font-size: 1.35em;
+  font-weight: normal;
+  text-align: left;
+  padding-top: 2in;
+  margin-bottom: 1.4em;
+  letter-spacing: 0.01em;
+}
+
+.book[data-genre="minimal"] h2 {
+  font-size: 1em;
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #666;
+  margin: 2em 0 0.6em;
+}
+
+/* No ornament between scenes, only space. */
+.book[data-genre="minimal"] hr {
+  border: 0;
+  margin: 2em 0;
+}
+
+.book[data-genre="minimal"] hr::after {
+  content: none;
+}
+
+.book[data-genre="minimal"] blockquote {
+  margin: 1.4em 0 1.4em 1.2em;
+  padding-left: 1em;
+  border-left: 1pt solid #ddd;
+  font-style: normal;
+  color: #333;
+}
+
+.book[data-genre="minimal"] blockquote p {
+  text-indent: 0;
+}

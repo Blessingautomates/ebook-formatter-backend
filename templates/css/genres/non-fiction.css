@@ -1,0 +1,83 @@
+/* Non-fiction: trade non-fiction and memoir.
+ * Airier than fiction, with space between paragraphs and supporting furniture
+ * for sub-heads, lists, pull quotes and figures. */
+
+.book[data-genre="non-fiction"] {
+  --paragraph-indent: 0;
+  --line-height: 1.58;
+  --base-font-size: 11pt;
+  font-family: var(--book-font, Georgia, "Times New Roman", serif);
+  text-align: justify;
+}
+
+/* Block paragraphs separated by space rather than indented. */
+.book[data-genre="non-fiction"] p {
+  margin: 0 0 0.85em 0;
+  text-indent: 0;
+}
+
+.book[data-genre="non-fiction"] h1 {
+  break-before: right;
+  font-size: 1.7em;
+  text-align: left;
+  padding-top: 1.4in;
+  margin-bottom: 1.2em;
+}
+
+.book[data-genre="non-fiction"] h2 {
+  font-size: 1.15em;
+  margin: 1.6em 0 0.5em;
+  text-align: left;
+}
+
+.book[data-genre="non-fiction"] h3 {
+  font-size: 1em;
+  font-style: italic;
+  font-weight: normal;
+  margin: 1.3em 0 0.4em;
+}
+
+.book[data-genre="non-fiction"] ul,
+.book[data-genre="non-fiction"] ol {
+  margin: 0 0 0.9em 0;
+  padding-left: 1.3em;
+}
+
+.book[data-genre="non-fiction"] li {
+  margin-bottom: 0.35em;
+  text-indent: 0;
+}
+
+/* Pull quotes break out of the measure. */
+.book[data-genre="non-fiction"] .pullquote {
+  margin: 1.2em 0;
+  padding: 0.6em 0;
+  border-top: 1pt solid #111;
+  border-bottom: 1pt solid #111;
+  font-size: 1.15em;
+  font-style: italic;
+  text-align: center;
+  text-indent: 0;
+}
+
+.book[data-genre="non-fiction"] blockquote {
+  margin: 1em 0 1em 1.6em;
+  padding-left: 0.8em;
+  border-left: 2pt solid #ccc;
+  font-style: normal;
+  font-size: 0.95em;
+}
+
+.book[data-genre="non-fiction"] figure {
+  margin: 1.2em 0;
+  break-inside: avoid;
+  text-align: center;
+}
+
+.book[data-genre="non-fiction"] figcaption {
+  font-size: 0.85em;
+  font-style: italic;
+  color: #444;
+  margin-top: 0.4em;
+  text-align: left;
+}

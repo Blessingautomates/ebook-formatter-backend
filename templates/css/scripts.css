@@ -1,0 +1,164 @@
+/* Direction and writing-system rules.
+ *
+ * The exporter puts `data-script` and `dir` on the `.book` container from
+ * /api/analyze-book's script_type and text_direction, so these selectors only
+ * ever match the one combination that manuscript actually needs.
+ */
+
+/* --------------------------------------------------------- caseless scripts */
+
+/* CJK, Arabic-script, Hebrew and Devanagari have no upper- or lower-case, so
+ * small-caps and text-transform are meaningless and some engines synthesise
+ * odd glyphs when asked for them. */
+.book[data-script="cjk"],
+.book[data-script="rtl"],
+.book[data-script="devanagari"] {
+  font-variant: normal;
+  text-transform: none;
+}
+
+/* Running heads normally use small-caps. This named page keeps the default
+ * geometry but drops it, for the caseless scripts above. */
+@page caseless-book:right {
+  @top-right {
+    content: string(chapter-title);
+    font-family: var(--running-head-font, serif);
+    font-size: 8.5pt;
+    font-variant: normal;
+    color: #555;
+    vertical-align: bottom;
+    padding-bottom: 0.16in;
+  }
+}
+
+@page caseless-book:left {
+  @top-left {
+    content: string(book-title);
+    font-family: var(--running-head-font, serif);
+    font-size: 8.5pt;
+    font-variant: normal;
+    color: #555;
+    vertical-align: bottom;
+    padding-bottom: 0.16in;
+  }
+}
+
+/* --------------------------------------------------------------- latin/others */
+
+.book[data-script="latin"] {
+  hyphens: auto;
+  text-align: justify;
+}
+
+/* Cyrillic sets a little looser than Latin at the same size. */
+.book[data-script="cyrillic"] {
+  hyphens: auto;
+  text-align: justify;
+  line-height: 1.55;
+}
+
+/* Greek carries more diacritics, so it wants the same extra leading. */
+.book[data-script="greek"] {
+  hyphens: auto;
+  text-align: justify;
+  line-height: 1.55;
+}
+
+/* ------------------------------------------------------------ right-to-left */
+
+.book[data-script="rtl"] {
+  direction: rtl;
+  text-align: right;
+  /* Arabic and Hebrew are not hyphenated, and justification is achieved by
+   * kashida or by accepting looser word spacing. */
+  hyphens: none;
+  line-height: 1.8;
+}
+
+.book[data-script="rtl"] p {
+  /* text-indent follows the inline start, so this indents from the right. */
+  text-indent: 1.6em;
+}
+
+/* Letter-spacing breaks the cursive joins in Arabic script, so it must never
+ * be applied to RTL text. */
+.book[data-script="rtl"],
+.book[data-script="rtl"] * {
+  letter-spacing: normal;
+  word-spacing: normal;
+}
+
+/* Punctuation-heavy RTL runs should not be broken mid-word. */
+.book[data-script="rtl"] p {
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+/* ------------------------------------------------------------------- CJK */
+
+.book[data-script="cjk"] {
+  /* CJK is never hyphenated. Line breaking happens between characters, which
+   * the text engine handles natively -- so word-break stays normal and only
+   * the hyphenation is switched off. */
+  hyphens: none;
+  text-align: justify;
+  line-height: 1.7;
+  word-break: normal;
+  overflow-wrap: normal;
+  line-break: strict;      /* keep punctuation off the start of a line */
+}
+
+.book[data-script="cjk"] p {
+  /* The convention is a two-character first-line indent, not an em-based one. */
+  text-indent: 2em;
+  margin: 0;
+}
+
+.book[data-script="cjk"] blockquote p,
+.book[data-script="cjk"] h1 + p,
+.book[data-script="cjk"] h2 + p {
+  text-indent: 0;
+}
+
+/* CJK has no italics; emphasis is marked with dots above the characters.
+ * Engines that do not support text-emphasis fall back to the italic below. */
+.book[data-script="cjk"] em,
+.book[data-script="cjk"] i {
+  font-style: italic;
+  text-emphasis: dot;
+  text-emphasis-position: over right;
+}
+
+.book[data-script="cjk"] strong,
+.book[data-script="cjk"] b {
+  font-weight: bold;
+}
+
+/* Latin runs inside CJK text keep their own spacing. */
+.book[data-script="cjk"] code,
+.book[data-script="cjk"] pre {
+  line-break: auto;
+  hyphens: none;
+}
+
+/* ------------------------------------------------------------- devanagari */
+
+.book[data-script="devanagari"] {
+  /* Devanagari stacks vowel signs above and below the baseline, so it needs
+   * noticeably more leading than Latin to stop the stacks colliding. */
+  line-height: 1.9;
+  hyphens: none;
+  text-align: justify;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.book[data-script="devanagari"] p {
+  text-indent: 1.6em;
+}
+
+/* Latin-script borrowings (URLs, code, brand names) keep normal wrapping. */
+.book[data-script="devanagari"] code,
+.book[data-script="devanagari"] pre {
+  line-height: 1.5;
+}

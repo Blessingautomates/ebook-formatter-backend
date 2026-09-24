@@ -1,0 +1,106 @@
+/* Academic: monographs and scholarly works.
+ * Numbered sections, indented block quotations, hanging-indent references,
+ * and footnotes set smaller than the body. */
+
+.book[data-genre="academic"] {
+  --paragraph-indent: 1.5em;
+  --line-height: 1.45;
+  --base-font-size: 10.5pt;
+  font-family: var(--book-font, "Times New Roman", Times, serif);
+  text-align: justify;
+}
+
+.book[data-genre="academic"] p {
+  margin: 0;
+  text-indent: 1.5em;
+}
+
+.book[data-genre="academic"] h1 {
+  font-size: 1.4em;
+  text-align: center;
+  padding-top: 1.1in;
+  counter-reset: section;
+}
+
+/* Numbered sub-sections, e.g. "1.2  Method". */
+.book[data-genre="academic"] h2 {
+  counter-increment: section;
+  font-size: 1.1em;
+  margin: 1.5em 0 0.5em;
+  text-align: left;
+}
+
+.book[data-genre="academic"] h2::before {
+  content: counter(section) ".  ";
+}
+
+.book[data-genre="academic"] h3 {
+  font-size: 1em;
+  font-style: italic;
+  font-weight: normal;
+  margin: 1.2em 0 0.4em;
+  text-align: left;
+}
+
+/* Long quotations are set smaller and indented on both sides, with no
+ * quotation marks and no first-line indent. */
+.book[data-genre="academic"] blockquote {
+  margin: 0.9em 1.8em;
+  font-size: 0.92em;
+  line-height: 1.35;
+  text-align: justify;
+}
+
+.book[data-genre="academic"] blockquote p {
+  text-indent: 0;
+  margin-bottom: 0.6em;
+}
+
+/* Reference lists hang their second and later lines. */
+.book[data-genre="academic"] .references p,
+.book[data-genre="academic"] .bibliography p {
+  padding-left: 1.4em;
+  text-indent: -1.4em;
+  margin-bottom: 0.5em;
+  text-align: left;
+}
+
+.book[data-genre="academic"] table {
+  font-size: 0.85em;
+}
+
+.book[data-genre="academic"] caption,
+.book[data-genre="academic"] .table-caption {
+  caption-side: top;
+  font-size: 0.85em;
+  text-align: left;
+  margin-bottom: 0.3em;
+}
+
+/* Footnotes carry their own marker and a short rule above. */
+.book[data-genre="academic"] .footnotes {
+  border-top: 0.5pt solid #666;
+  margin-top: 1.5em;
+  padding-top: 0.5em;
+  font-size: 0.82em;
+  line-height: 1.3;
+}
+
+.book[data-genre="academic"] .footnotes p {
+  text-indent: 0;
+  margin-bottom: 0.4em;
+  text-align: left;
+}
+
+/* Figures and equations are numbered by their caption text. */
+.book[data-genre="academic"] figure {
+  break-inside: avoid;
+  margin: 1.2em 0;
+  text-align: center;
+}
+
+.book[data-genre="academic"] figcaption {
+  font-size: 0.85em;
+  text-align: left;
+  margin-top: 0.35em;
+}

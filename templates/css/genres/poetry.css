@@ -1,0 +1,74 @@
+/* Poetry: verse and drama.
+ * Line breaks are the point, so they are preserved exactly -- no wrapping,
+ * no justification, no hyphenation. */
+
+.book[data-genre="poetry"] {
+  --paragraph-indent: 0;
+  --line-height: 1.4;
+  --base-font-size: 11pt;
+  font-family: var(--book-font, Georgia, "Times New Roman", serif);
+  text-align: left;
+  hyphens: none;
+}
+
+.book[data-genre="poetry"] h1 {
+  padding-top: 1.4in;
+  font-size: 1.3em;
+  font-variant: small-caps;
+  margin-bottom: 1.8em;
+}
+
+/* A poem or stanza block keeps the author's own line breaks. */
+.book[data-genre="poetry"] .verse,
+.book[data-genre="poetry"] .poem,
+.book[data-genre="poetry"] .stanza {
+  white-space: pre-wrap;       /* keep line breaks, still wrap long lines */
+  hanging-punctuation: first;
+  margin: 0 0 1.5em 0;
+  text-indent: 0;
+  line-height: 1.4;
+  break-inside: avoid;
+}
+
+/* Where verse is marked up as paragraphs, each one is a stanza. */
+.book[data-genre="poetry"] p {
+  margin: 0 0 1.5em 0;
+  text-indent: 0;
+  text-align: left;
+}
+
+/* Continuous verse written as <br>-separated lines. */
+.book[data-genre="poetry"] p.line {
+  margin: 0;
+  text-indent: 0;
+}
+
+/* Continuation lines of a wrapped verse line are indented, but only visually:
+ * the marker is authorial, so it is preserved rather than generated. */
+.book[data-genre="poetry"] .indent-1 { padding-left: 2em; }
+.book[data-genre="poetry"] .indent-2 { padding-left: 4em; }
+.book[data-genre="poetry"] .indent-3 { padding-left: 6em; }
+
+/* Prose passages in a verse collection keep normal paragraph behaviour. */
+.book[data-genre="poetry"] .prose p {
+  text-indent: 1.3em;
+  margin: 0 0 0.2em 0;
+  text-align: justify;
+  hyphens: auto;
+}
+
+.book[data-genre="poetry"] .prose p:first-of-type {
+  text-indent: 0;
+}
+
+.book[data-genre="poetry"] em,
+.book[data-genre="poetry"] i {
+  font-style: italic;
+}
+
+/* Stage directions in drama are indented and italic. */
+.book[data-genre="poetry"] .stage-direction {
+  padding-left: 2em;
+  font-style: italic;
+  text-indent: 0;
+}
