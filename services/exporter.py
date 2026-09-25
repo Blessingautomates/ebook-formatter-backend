@@ -58,6 +58,11 @@ _TWIPS_PER_INCH = 1440
 
 _MD_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 _SCENE_BREAK_RE = re.compile(r"^(?:\*\s*\*\s*\*|\*\*\*+|⁂|-{3,}|_{3,})$")
+# A bullet or quote marker. Both are tested *after* _SCENE_BREAK_RE: "* * *" also
+# matches _BULLET_RE, so checking bullets first would turn every scene break into
+# a one-item list.
+_BULLET_RE = re.compile(r"^[-*+]\s+(.*)$")
+_QUOTE_RE = re.compile(r"^>\s?(.*)$")
 _EMPHASIS_RE = re.compile(r"(?<!\*)\*(?!\s)(.+?)(?<!\s)\*(?!\*)")
 _STRONG_RE = re.compile(r"\*\*(.+?)\*\*")
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
@@ -115,9 +120,15 @@ class ExportResult:
 
 @dataclass(frozen=True)
 class Block:
-    """One structural unit of the manuscript."""
+    """One structural unit of the manuscript.
 
-    kind: str      # "h1".."h6", "p" or "break"
+    A "ul" holds its whole run with the items newline-joined, and a "quote" its
+    lines space-joined. One block per run rather than one per item, so each
+    renderer handles the run on its own and none of them has to track "is this
+    the first item?" to open and close the list.
+    """
+
+    kind: str      # "h1".."h6", "p", "break", "ul" or "quote"
     text: str
 
 
@@ -204,45 +215,86 @@ def _validate(request: ExportRequest) -> None:
 # ---------------------------------------------------------------- manuscript
 
 def parse_blocks(text: str) -> list[Block]:
-    """Split the manuscript into headings, paragraphs and scene breaks.
+    """Split the manuscript into headings, paragraphs, lists, quotes and breaks.
 
     Headings are recognised the same way /api/analyze-book counts chapters, so
     the export and the analysis agree on where the chapter boundaries are.
     """
     blocks: list[Block] = []
     buffer: list[str] = []
+    # The run of bullet items or quote lines being accumulated. At most one of
+    # the two is ever non-empty, and neither coexists with the paragraph buffer:
+    # a line of prose closes both runs before it is buffered.
+    bullets: list[str] = []
+    quotes: list[str] = []
 
-    def flush() -> None:
+    def flush_paragraph() -> None:
         if buffer:
             blocks.append(Block("p", " ".join(buffer).strip()))
             buffer.clear()
 
+    def flush_quotes() -> None:
+        if quotes:
+            blocks.append(Block("quote", " ".join(quotes)))
+            quotes.clear()
+
+    def flush_bullets() -> None:
+        if bullets:
+            blocks.append(Block("ul", "\n".join(bullets)))
+            bullets.clear()
+
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line:
-            flush()
+            # A blank line ends a paragraph but not a list, so a manuscript that
+            # puts space between its bullet items still reads as a single list.
+            flush_paragraph()
             continue
 
         heading = _MD_HEADING_RE.match(line)
         if heading:
-            flush()
+            flush_paragraph()
+            flush_quotes()
+            flush_bullets()
             level = min(len(heading.group(1)), 6)
             blocks.append(Block(f"h{level}", heading.group(2).strip()))
             continue
 
         if is_chapter_heading(line):
-            flush()
+            flush_paragraph()
+            flush_quotes()
+            flush_bullets()
             blocks.append(Block("h1", chapter_title(line)))
             continue
 
         if _SCENE_BREAK_RE.match(line):
-            flush()
+            flush_paragraph()
+            flush_quotes()
+            flush_bullets()
             blocks.append(Block("break", "* * *"))
             continue
 
+        bullet = _BULLET_RE.match(line)
+        if bullet:
+            flush_paragraph()
+            flush_quotes()
+            bullets.append(bullet.group(1).strip())
+            continue
+
+        quote = _QUOTE_RE.match(line)
+        if quote:
+            flush_paragraph()
+            flush_bullets()
+            quotes.append(quote.group(1).strip())
+            continue
+
+        flush_quotes()
+        flush_bullets()
         buffer.append(line)
 
-    flush()
+    flush_paragraph()
+    flush_quotes()
+    flush_bullets()
     return blocks
 
 
@@ -292,6 +344,13 @@ def render_body_html(blocks: list[Block]) -> str:
 def _block_html(block: Block) -> str:
     if block.kind == "break":
         return '<p class="break">* * *</p>'
+    if block.kind == "ul":
+        items = "".join(
+            f"<li>{_inline_markup(item)}</li>" for item in block.text.split("\n")
+        )
+        return f"<ul>{items}</ul>"
+    if block.kind == "quote":
+        return f"<blockquote><p>{_inline_markup(block.text)}</p></blockquote>"
     if block.kind.startswith("h"):
         return f"<{block.kind}>{_inline_markup(block.text)}</{block.kind}>"
     return f"<p>{_inline_markup(block.text)}</p>"
@@ -514,6 +573,20 @@ def export_docx(request: ExportRequest) -> bytes:
         else WD_ALIGN_PARAGRAPH.JUSTIFY
     )
 
+    def styled(text: str, style_name: str):
+        """A paragraph in `style_name`, or an indented plain one without it.
+
+        Both styles ship with python-docx's default template, so this normally
+        resolves; a document built from a stripped template would raise KeyError,
+        and that should cost the styling rather than the whole export.
+        """
+        try:
+            return document.add_paragraph(text, style=style_name)
+        except KeyError:
+            paragraph = document.add_paragraph(text)
+            paragraph.paragraph_format.left_indent = Inches(0.25)
+            return paragraph
+
     for block in parse_blocks(request.text):
         if block.kind.startswith("h"):
             level = int(block.kind[1])
@@ -524,8 +597,14 @@ def export_docx(request: ExportRequest) -> bytes:
                 else WD_ALIGN_PARAGRAPH.LEFT
             )
             continue
-        paragraph = document.add_paragraph(_plain_text(block.text))
-        paragraph.alignment = alignment
+        if block.kind == "ul":
+            for item in block.text.split("\n"):
+                styled(_plain_text(item), "List Bullet").alignment = alignment
+            continue
+        if block.kind == "quote":
+            styled(_plain_text(block.text), "Quote").alignment = alignment
+            continue
+        document.add_paragraph(_plain_text(block.text)).alignment = alignment
 
     buffer = io.BytesIO()
     document.save(buffer)
@@ -574,6 +653,27 @@ def export_rtf(request: ExportRequest) -> bytes:
                 + r"\b0\par"
             )
             continue
+        if block.kind == "ul":
+            # \fi-360 with \li720 hangs the bullet in the indent, which is how
+            # Word lays out its own bulleted lists.
+            for item in block.text.split("\n"):
+                body.append(
+                    r"\pard\fi-360\li720\f0\fs"
+                    + str(font_size)
+                    + " "
+                    + _rtf_escape("• " + _plain_text(item))
+                    + r"\par"
+                )
+            continue
+        if block.kind == "quote":
+            body.append(
+                r"\pard\li720\ri720\f0\fs"
+                + str(font_size)
+                + " "
+                + text
+                + r"\par"
+            )
+            continue
         body.append(r"\pard\fi360\f0\fs" + str(font_size) + " " + text + r"\par")
 
     document = "\n".join(header) + "\n" + "\n".join(body) + "\n}"
@@ -606,6 +706,16 @@ def export_txt(request: ExportRequest) -> bytes:
     for block in parse_blocks(request.text):
         if block.kind == "break":
             lines.append("* * *")
+        elif block.kind == "ul":
+            # Wrapped at 70 so the two-character marker or indent brings the
+            # line back to the same 72-column measure as the prose.
+            for item in block.text.split("\n"):
+                wrapped = _wrap(_plain_text(item), width=70).split("\n")
+                lines.append("- " + wrapped[0])
+                lines.extend("  " + part for part in wrapped[1:])
+        elif block.kind == "quote":
+            for part in _wrap(_plain_text(block.text), width=70).split("\n"):
+                lines.append("  " + part)
         elif block.kind == "h1":
             lines.append(_underline(block.text))
         elif block.kind.startswith("h"):

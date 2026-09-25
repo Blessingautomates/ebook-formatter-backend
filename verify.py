@@ -301,6 +301,63 @@ for name, data in (("empty.txt", b"  \n "), ("book.pdf", b"%PDF")):
     except HTTPException as e:
         check(f"{name} rejected 400", e.status_code, 400)
 
+print("== 6. exporter block parsing ==")
+from services.exporter import (
+    ExportRequest,
+    export_rtf,
+    export_txt,
+    parse_blocks,
+    render_body_html,
+)
+
+listy = parse_blocks("Intro line.\n\n- first\n- second\n\nAfter.")
+check("list kinds", [b.kind for b in listy], ["p", "ul", "p"])
+check("one block per run, not per item", listy[1].text, "first\nsecond")
+
+# The regression this change could plausibly cause: "* * *" also matches the
+# bullet pattern, so if the bullet check ever moves above the scene-break check
+# every scene break in every book becomes a one-item list.
+check("scene break is a break", [b.kind for b in parse_blocks("* * *")], ["break"])
+check("spaced asterisks", [b.kind for b in parse_blocks("*  *  *")], ["break"])
+check("asterisk break", [b.kind for b in parse_blocks("***")], ["break"])
+check("dash break", [b.kind for b in parse_blocks("---")], ["break"])
+check("underscore break", [b.kind for b in parse_blocks("___")], ["break"])
+check("a lone star is still a bullet", [b.kind for b in parse_blocks("* item")], ["ul"])
+
+check("quote kinds", [b.kind for b in parse_blocks("> one\n> two\n\nAfter.")], ["quote", "p"])
+check("quote joins its lines", parse_blocks("> one\n> two")[0].text, "one two")
+
+# A blank line ends a paragraph but not a list, so bullets spaced apart in the
+# source stay one list. A line of prose does close it.
+check("blank line keeps the list open", [b.kind for b in parse_blocks("- a\n\n- b")], ["ul"])
+check("blank line keeps the quote open", [b.kind for b in parse_blocks("> a\n\n> b")], ["quote"])
+check("prose closes a list", [b.kind for b in parse_blocks("- a\nprose")], ["ul", "p"])
+check("a list closes a quote", [b.kind for b in parse_blocks("> a\n- b")], ["quote", "ul"])
+check("a heading closes a list", [b.kind for b in parse_blocks("- a\n# H")], ["ul", "h1"])
+
+check("ul html",
+      "<ul><li>a</li><li>b</li></ul>" in render_body_html(parse_blocks("- a\n- b")), True)
+check("emphasis inside a list item",
+      "<li><strong>b</strong></li>" in render_body_html(parse_blocks("- **b**")), True)
+check("quote html",
+      "<blockquote><p>q</p></blockquote>" in render_body_html(parse_blocks("> q")), True)
+
+txt_bullets = export_txt(ExportRequest(text="- a\n- b", format="txt")).decode()
+check("txt bullet markers", txt_bullets.splitlines()[:2], ["- a", "- b"])
+txt_quote = export_txt(ExportRequest(text="> q", format="txt")).decode()
+check("txt quote indented", txt_quote.splitlines()[0], "  q")
+
+# RTF is the one rich renderer that needs no library, so unlike DOCX it can be
+# exercised here. The bullet character is written as an RTF unicode escape, and
+# the whole document has to survive the ASCII encode at the end.
+rtf_bullets = export_rtf(ExportRequest(text="- a\n- b", format="rtf")).decode("ascii")
+check("rtf bullets hang in the indent", rtf_bullets.count(r"\fi-360\li720"), 2)
+check("rtf bullet glyph escaped", (chr(92) + "u8226?") in rtf_bullets, True)
+check("rtf stays ascii", rtf_bullets.isascii(), True)
+rtf_quote = export_rtf(ExportRequest(text="> q", format="rtf")).decode("ascii")
+check("rtf quote indented both sides", r"\pard\li720\ri720" in rtf_quote, True)
+check("rtf quote keeps its text", " q" in rtf_quote, True)
+
 print()
 print(f"{len(FAILS)} failure(s)" + (f": {FAILS}" if FAILS else ""))
 sys.exit(1 if FAILS else 0)
