@@ -51,7 +51,23 @@ class UploadFile:
 
 fm.FastAPI, fm.HTTPException, fm.UploadFile = FastAPI, HTTPException, UploadFile
 fm.File = lambda default=None, **kw: default
+fm.Form = lambda default=None, **kw: default
 sys.modules["fastapi"] = fm
+
+# main.py imports StreamingResponse from this submodule, so it has to exist too.
+fr = types.ModuleType("fastapi.responses")
+
+
+class StreamingResponse:
+    def __init__(self, content=None, media_type=None, headers=None, **kw):
+        self.content = content
+        self.media_type = media_type
+        self.headers = headers
+
+
+fr.StreamingResponse = StreamingResponse
+fm.responses = fr
+sys.modules["fastapi.responses"] = fr
 
 # ---- stub spellchecker ----
 DICT = {w: 10 for w in (
@@ -73,11 +89,35 @@ def _lev(a, b):
     return prev[-1]
 
 
+class WordFrequency:
+    """Mirrors pyspellchecker's `WordFrequency`: a mapping, but not a `dict`.
+
+    It is subscriptable and iterable and defines `__contains__`, yet it has no
+    `get`. Stubbing this as a plain `dict` hid an AttributeError that only
+    showed up against the installed library, so the real shape is reproduced.
+    """
+
+    def __init__(self, counts):
+        self._counts = dict(counts)
+
+    def __getitem__(self, key):
+        return self._counts[key]
+
+    def __contains__(self, key):
+        return key in self._counts
+
+    def __iter__(self):
+        return iter(self._counts)
+
+    def __len__(self):
+        return len(self._counts)
+
+
 class SpellChecker:
     def __init__(self, language="en", **kw):
         if language != "en":
             raise ValueError("no dictionary")
-        self.word_frequency = dict(DICT)
+        self.word_frequency = WordFrequency(DICT)
     def unknown(self, words):
         return {w for w in words if w.lower() not in self.word_frequency}
     def candidates(self, word):
