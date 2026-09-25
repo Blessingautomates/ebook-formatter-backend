@@ -173,7 +173,7 @@ from dataclasses import asdict
 
 import main
 from services.analyzer import analyze_manuscript
-from services.chapters import count_chapters
+from services.chapters import chapter_breakdown, count_chapters
 from services.detection import _direction_and_script, detect_language
 from services.extractors import UnsupportedFormatError
 from services.typos import MAX_TYPOS, scan_typos
@@ -202,6 +202,26 @@ check("arabic", count_chapters("الفصل الأول\n\nنص.\n\nالفصل ا�
 check("chinese", count_chapters("第一章\n\n文字。\n\n第二章\n\n文字。\n\n第三章\n\n文。\n"), 3)
 check("prose ignored", count_chapters("Chapter 3 was long.\n3 apples fell.\nCIVIL war.\n"), 0)
 check("roman+numbered", count_chapters("I\n\nII\n\nIII\n\n12. The Return\n\n13 - Aftermath\n"), 5)
+
+split = "Preface words here.\n\n# Chapter One\n\nA b c.\n\n# Chapter Two\n\nD e.\n"
+
+
+def words(text):
+    """Stands in for analyzer.count_words, which is the same split for ASCII."""
+    return len(text.split())
+
+
+bd = chapter_breakdown(split, words)
+check("breakdown titles", [c.title for c in bd], ["Front Matter", "Chapter One", "Chapter Two"])
+check("breakdown lines", [c.line_number for c in bd], [1, 3, 7])
+check("breakdown words", [c.word_count for c in bd], [3, 6, 5])
+check("breakdown is count+front matter", len(bd), count_chapters(split) + 1)
+check("breakdown sums to the whole text", sum(c.word_count for c in bd), words(split))
+opens_on_chapter = "# Chapter One\n\nA b.\n"
+check("no empty front matter",
+      [c.title for c in chapter_breakdown(opens_on_chapter, words)], ["Chapter One"])
+check("breakdown matches count",
+      len(chapter_breakdown(opens_on_chapter, words)), count_chapters(opens_on_chapter))
 
 print("== 3. typo scan ==")
 book = "\n".join([
@@ -246,11 +266,13 @@ check("capped note", cap.note, f"Showing the first {MAX_TYPOS} of 250 findings."
 print("== 4. pipeline ==")
 res = analyze_manuscript("book.md", book.encode())
 check("fields", set(asdict(res)), {
-    "word_count", "chapter_count", "detected_language", "language_name",
+    "word_count", "chapter_count", "chapters", "detected_language", "language_name",
     "text_direction", "script_type", "estimated_pages", "token_cost",
     "typo_count", "typos", "typo_check_available", "typo_check_note"})
 check("words", res.word_count, len(book.split()))
 check("chapters", res.chapter_count, 2)
+check("chapter titles", [c.title for c in res.chapters], ["Front Matter", "Chapter One: Beginnings", "Chapter Two: Middles"])
+check("chapter fields", set(asdict(res)["chapters"][0]), {"title", "line_number", "word_count"})
 check("script", res.script_type, "latin")
 check("typo_count", res.typo_count, 3)
 check("typo dict fields", set(asdict(res)["typos"][0]),
@@ -266,6 +288,8 @@ r = asyncio.run(main.analyze_book(UploadFile("book.md", book.encode())))
 check("model type", type(r).__name__, "BookAnalysis")
 check("api typo_count", r.typo_count, 3)
 check("api serialise", r.model_dump()["typos"][0]["word"], "teh")
+check("api chapters serialise", r.model_dump()["chapters"][1]["title"], "Chapter One: Beginnings")
+check("api chapter word count", r.model_dump()["chapters"][1]["word_count"] > 0, True)
 check("api script", r.script_type, "latin")
 ru = asyncio.run(main.analyze_book(UploadFile("книга.txt", "Привет мир как дела".encode())))
 check("api accepts cyrillic", ru.script_type, "cyrillic")

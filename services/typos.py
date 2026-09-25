@@ -14,10 +14,7 @@ from functools import lru_cache
 
 from spellchecker import SpellChecker
 
-from services.chapters import chapter_title, is_chapter_heading
-
-# Chapter label used for text before the first chapter heading.
-FRONT_MATTER = "Front Matter"
+from services.chapters import FRONT_MATTER, chapter_title, is_chapter_heading
 
 # Ceiling on the reported findings. A misspelled word is reported once per
 # occurrence, so a book with a systematic error would otherwise return an

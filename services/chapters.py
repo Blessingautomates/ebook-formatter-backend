@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
+from dataclasses import dataclass
 
 # A line is only a chapter heading if it is short. Long lines are prose that
 # happens to start with a number or the word "chapter".
 MAX_HEADING_CHARS = 80
+
+# Label for the text before the first chapter heading. Shared with the typo
+# scanner so a finding and a chapter entry never disagree about where they are.
+FRONT_MATTER = "Front Matter"
 
 _MARKDOWN_HEADING_RE = re.compile(r"^#{1,6}\s+\S")
 _MARKDOWN_PREFIX_RE = re.compile(r"^#{1,6}\s*")
@@ -62,6 +68,15 @@ _TO_ROMAN_TABLE = (
 )
 
 
+@dataclass(frozen=True)
+class ChapterSummary:
+    """One chapter's share of a manuscript."""
+
+    title: str
+    line_number: int
+    word_count: int
+
+
 def count_chapters(text: str) -> int:
     """Count the chapter markers in `text`.
 
@@ -72,6 +87,52 @@ def count_chapters(text: str) -> int:
     if count == 0:
         count = _count_without_line_breaks(text)
     return count
+
+
+def chapter_breakdown(
+    text: str, count_words: Callable[[str], int]
+) -> list[ChapterSummary]:
+    """Split `text` into its chapters, with where each starts and how long it is.
+
+    The headings are the same ones `count_chapters` counts, so the length of
+    this list matches it. Text before the first heading is reported as one
+    "Front Matter" entry, and only when there is text there — a manuscript that
+    opens on "Chapter 1" should not gain an empty leading section.
+
+    The chapter's own heading counts towards its word count: it is part of the
+    chapter as a reader sees it.
+
+    `count_words` is passed in rather than imported because the CJK-aware
+    counter lives in services.analyzer, which imports this module.
+    """
+    lines = text.splitlines()
+    if not any(is_chapter_heading(line) for line in lines):
+        # The same fallback count_chapters uses, so the two agree. It only
+        # applies to a manuscript that arrived as one unbroken paragraph; the
+        # "line numbers" are then sentence positions.
+        lines = _SENTENCE_BREAK_RE.split(text)
+
+    # (index of the line the chapter starts on, its title)
+    starts = [
+        (index, chapter_title(line) or line.strip())
+        for index, line in enumerate(lines)
+        if is_chapter_heading(line)
+    ]
+
+    sections: list[tuple[str, int, str]] = []
+    if starts and any(line.strip() for line in lines[: starts[0][0]]):
+        sections.append((FRONT_MATTER, 1, "\n".join(lines[: starts[0][0]])))
+
+    for position, (start, title) in enumerate(starts):
+        end = starts[position + 1][0] if position + 1 < len(starts) else len(lines)
+        sections.append((title, start + 1, "\n".join(lines[start:end])))
+
+    return [
+        ChapterSummary(
+            title=title, line_number=line_number, word_count=count_words(body)
+        )
+        for title, line_number, body in sections
+    ]
 
 
 def is_chapter_heading(raw_line: str) -> bool:

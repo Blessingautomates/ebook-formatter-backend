@@ -35,11 +35,24 @@ class TypoLocation(BaseModel):
     )
 
 
+class ChapterSummary(BaseModel):
+    """One chapter of a manuscript, and how much of it the chapter holds."""
+
+    title: str = Field(description="The heading, without its Markdown marker.")
+    line_number: int = Field(description="Line the heading is on, 1-based.")
+    word_count: int = Field(description="Words in the chapter, heading included.")
+
+
 class BookAnalysis(BaseModel):
     """Measurements taken from one manuscript."""
 
     word_count: int = Field(description="Total words in the manuscript.")
     chapter_count: int = Field(description="Chapter markers found in the manuscript.")
+    chapters: list[ChapterSummary] = Field(
+        description="Per-chapter breakdown, in document order. A 'Front Matter' "
+        "entry is included when the manuscript has text before its first "
+        "heading, so this can be one longer than chapter_count."
+    )
     detected_language: str = Field(description="ISO language code, or 'unknown'.")
     language_name: str = Field(description="Human-readable language name.")
     text_direction: Literal["ltr", "rtl"] = Field(description="Reading direction.")

@@ -6,7 +6,7 @@ import math
 import re
 from dataclasses import dataclass
 
-from services.chapters import count_chapters
+from services.chapters import ChapterSummary, chapter_breakdown, count_chapters
 from services.detection import detect_language
 from services.extractors import extract_text
 from services.typos import Typo, scan_typos
@@ -31,6 +31,7 @@ class AnalysisResult:
 
     word_count: int
     chapter_count: int
+    chapters: list[ChapterSummary]
     detected_language: str
     language_name: str
     text_direction: str
@@ -57,6 +58,7 @@ def analyze_manuscript(filename: str, data: bytes) -> AnalysisResult:
     return AnalysisResult(
         word_count=word_count,
         chapter_count=chapter_count,
+        chapters=chapter_breakdown(text, count_words),
         detected_language=language.code,
         language_name=language.name,
         text_direction=language.text_direction,
