@@ -6,3 +6,14 @@ langdetect>=1.0.9,<2.0
 pyspellchecker>=0.8,<1.0
 weasyprint>=62.0,<70.0
 EbookLib>=0.18,<1.0
+# Cover validation. Reads pixel dimensions and colour profile from an uploaded
+# cover; the spine, bleed and safe-area arithmetic is ours, not Pillow's.
+Pillow>=10.0,<12.0
+# Credit metering. httpx reaches the Supabase REST API; PyJWT verifies the
+# caller's session token. Both are only needed by a deployment that turns
+# metering on — with no SUPABASE_JWT_SECRET the backend stays anonymous and
+# charges nobody, and the lazy imports in services/auth.py and
+# services/credits.py keep them out of the way until then. The `crypto` extra is
+# what adds RS256, which is what Supabase's asymmetric signing keys need.
+httpx>=0.27,<1.0
+PyJWT[crypto]>=2.9,<3.0
