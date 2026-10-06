@@ -6,16 +6,21 @@ import io
 from dataclasses import asdict
 from typing import Literal
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from services import auth, credits, exporter, packaging
+from services import auth, credits, exporter, health_jobs, packaging
 from services.analyzer import analyze_manuscript
 from services.auth import AuthedUser, AuthError, AuthUnavailableError
 from services.cover import CoverError, CoverReport, validate_cover
 from services.credits import CreditsError, CreditsUnavailableError, InsufficientCredits
 from services.extractors import ManuscriptError, extract_text
+from services.health_jobs import (
+    HealthJobError,
+    HealthJobUnavailableError,
+    JobRequest,
+)
 
 app = FastAPI(
     title="Ebook Formatting Platform",
@@ -478,3 +483,327 @@ async def _manuscript_text(file: UploadFile | None, text: str | None) -> str:
         status_code=400,
         detail="Provide a manuscript file upload or a non-empty text field.",
     )
+
+
+# --------------------------------------------------------------------------
+# Manuscript intelligence: the health report and the Book Doctor's source data
+# --------------------------------------------------------------------------
+
+
+class HealthReadingLevel(BaseModel):
+    """Readability scores. Defined for English only; see HealthMetrics."""
+
+    flesch_reading_ease: float = Field(
+        description="Flesch Reading Ease. Higher is easier; 60-70 is plain English."
+    )
+    flesch_kincaid_grade: float = Field(
+        description="US school grade level the manuscript reads at."
+    )
+    label: str = Field(description="The grade in plain language.")
+
+
+class HealthMetrics(BaseModel):
+    """How big the manuscript is and how hard it is to read."""
+
+    word_count: int
+    character_count: int = Field(description="Every character, spaces included.")
+    character_count_no_spaces: int
+    sentence_count: int
+    paragraph_count: int
+    chapter_count: int = Field(description="Excludes the Front Matter entry.")
+    print_pages: int = Field(
+        description="Estimated typeset pages. Uses the same words-per-page "
+        "figure as the pre-scan and the exporter, so the three cannot disagree."
+    )
+    reading_time_minutes: int = Field(description="At 220 words per minute.")
+    reading_level: HealthReadingLevel | None = Field(
+        description="Null when the manuscript is not in English, in which case "
+        "reading_level_note explains why. Flesch-Kincaid is a formula over "
+        "English syllables and would return a meaningless number elsewhere."
+    )
+    reading_level_note: str | None = Field(
+        description="Why no reading level is reported, when none is."
+    )
+    detected_genre: str = Field(
+        description="Best guess at the genre, offered as a default the author "
+        "can override in the genre selector."
+    )
+    genre_confidence: float = Field(
+        description="0-1. Low means the signals were close or absent."
+    )
+    genre_source: str = Field(description="'heuristic', 'ai', or 'default'.")
+    completeness: int = Field(
+        description="0-100, from structural signals only — chapters present, "
+        "chapters of sane length, an ending that finishes. Distinct from the "
+        "publishing-readiness score in the UI, which measures saved-row state "
+        "(title set, cover validated, sign-off signed). The two are different "
+        "numbers and must not be shown as one."
+    )
+    completeness_notes: list[str] = Field(
+        description="What is missing, one line each. Empty at 100."
+    )
+    estimated_processing_seconds: int = Field(
+        description="How long a scan of this manuscript takes."
+    )
+
+
+class HealthFinding(BaseModel):
+    """One thing worth the author's attention."""
+
+    id: str = Field(
+        description="Stable across re-runs of the same manuscript, so a "
+        "reviewed or dismissed finding is not asked about twice."
+    )
+    category: str = Field(description="Which category this belongs to.")
+    severity: Literal["high", "medium", "low"]
+    message: str = Field(description="What is wrong, addressed to the author.")
+    chapter: str = Field(description="Chapter it is in, or 'Front Matter'.")
+    line_number: int = Field(description="Line in the extracted text, 1-based.")
+    context: str = Field(description="A snippet of the surrounding text.")
+    suggestion: str | None = Field(
+        default=None, description="What to do about it, when there is advice."
+    )
+    original: str | None = Field(
+        default=None,
+        description="The exact text to replace. Null for anything that is a "
+        "judgement call rather than a mechanical fix.",
+    )
+    replacement: str | None = Field(
+        default=None, description="What to replace it with."
+    )
+    fixable: bool = Field(
+        description="True when original and replacement are both set, so this "
+        "finding may be applied automatically. Only mechanical corrections "
+        "ever qualify: prose judgements never do."
+    )
+
+
+class HealthCategory(BaseModel):
+    """One category of the report: what it is, and what it found."""
+
+    id: str
+    label: str
+    group: str = Field(
+        description="The Book Doctor section this is filed under: Writing "
+        "health, Consistency, Dialogue, Pacing, or Typography & structure."
+    )
+    source: Literal["rules", "ai"] = Field(
+        description="Where the findings came from. A rule finding is exact and "
+        "free; an AI finding is a judgement."
+    )
+    fixable: bool = Field(
+        description="Whether Fix All may apply findings in this category."
+    )
+    count: int
+    available: bool = Field(
+        description="False when this category could not be checked at all — no "
+        "dictionary for the language, or no API key. Distinct from count 0, "
+        "which means it was checked and was clean."
+    )
+    note: str | None = Field(
+        default=None, description="Why it could not run, when it could not."
+    )
+    findings: list[HealthFinding]
+
+
+class HealthReport(BaseModel):
+    """The whole manuscript health report."""
+
+    metrics: HealthMetrics
+    categories: list[HealthCategory] = Field(
+        description="Every category, whether or not it found anything, so the "
+        "dashboard renders a stable breakdown."
+    )
+    total_findings: int
+    fixable_findings: int = Field(
+        description="How many Fix All would apply. Always a subset of the "
+        "mechanical categories."
+    )
+    health_score: int = Field(
+        description="0-100, from defect density rather than defect count: a "
+        "long novel with thirty findings is in better shape than a short story "
+        "with thirty."
+    )
+    ai_available: bool
+    ai_note: str | None = Field(
+        default=None, description="Why the AI categories are missing, when they are."
+    )
+    ai_model: str | None = None
+    ai_calls: int
+    ai_cost_usd: float = Field(
+        description="What the AI pass actually cost, computed from the token "
+        "usage the API reported. This is a real cost and is a different "
+        "quantity from the pre-scan's token_cost, which is a platform pricing "
+        "formula. They are never summed."
+    )
+    ai_credits: int = Field(description="ai_cost_usd expressed in platform credits.")
+    scanned_at: str
+
+
+class HealthJobAccepted(BaseModel):
+    """The response to starting a scan. Poll the job for the report."""
+
+    job_id: str
+    status: Literal["queued", "running", "succeeded", "failed", "stale"]
+
+
+class HealthJobStatus(BaseModel):
+    """The state of one health scan, and its report once it has one."""
+
+    job_id: str
+    status: Literal["queued", "running", "succeeded", "failed", "stale"] = Field(
+        description="'stale' means the scan stopped before finishing — the "
+        "server was probably restarted mid-run, since the background runner "
+        "does not survive one. The author should start it again."
+    )
+    stage: str | None = Field(
+        default=None,
+        description="queued, extracting, metrics, rules, ai, assembling, done.",
+    )
+    progress: int = Field(description="0-100.")
+    source_filename: str | None = None
+    error: str | None = Field(
+        default=None, description="Why it failed, when it failed."
+    )
+    created_at: str | None = None
+    updated_at: str | None = None
+    report: HealthReport | None = Field(
+        default=None, description="Present once status is 'succeeded'."
+    )
+
+
+@app.post(
+    "/api/manuscript/analyze",
+    status_code=202,
+    response_model=HealthJobAccepted,
+    responses={
+        202: {"description": "The scan is queued. Poll GET /api/manuscript/health/{job_id}."},
+        400: {"description": "No manuscript, or a file that could not be read."},
+        401: {"description": "Authentication is enabled and the token is missing or invalid."},
+        503: {"description": "Health scans are not configured on this deployment."},
+    },
+)
+async def start_manuscript_analysis(
+    background: BackgroundTasks,
+    file: UploadFile | None = File(default=None),
+    text: str | None = Form(default=None),
+    title: str | None = Form(default=None),
+    author: str | None = Form(default=None),
+    genre: str = Form(default="non-fiction"),
+    manuscript_id: str | None = Form(default=None),
+    ignored: list[str] = Form(default=[]),
+    authorization: str | None = Header(default=None),
+) -> HealthJobAccepted:
+    """Start a manuscript health scan and return a job to poll.
+
+    Accepts the manuscript either as an uploaded .docx/.epub/.md/.txt file or as
+    the `text` field — a caller that already has the extracted text from
+    /api/analyze-book should pass that rather than uploading the book a second
+    time.
+
+    Scans are per-account because the job row is owner-scoped, so unlike
+    /api/analyze-book this route needs authentication to be configured.
+    """
+    try:
+        user = auth.current_user(authorization)
+    except AuthError as exc:
+        raise HTTPException(
+            status_code=401, detail=str(exc), headers={"WWW-Authenticate": "Bearer"}
+        ) from exc
+    except AuthUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    if user is None:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Health scans are stored per account, so they need "
+                "authentication to be configured on this deployment."
+            ),
+        )
+
+    if not health_jobs.jobs_configured():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Health scans need SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY "
+                "to store their results."
+            ),
+        )
+
+    manuscript = await _manuscript_text(file, text)
+    filename = file.filename if file is not None else None
+
+    try:
+        job = await health_jobs.create_job(
+            user, filename=filename, manuscript_id=manuscript_id or None
+        )
+    except HealthJobUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except HealthJobError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    # The text travels in the task rather than being re-read from storage: the
+    # caller already sent it, and asking them to upload a novel again just to
+    # poll for its own scan would be absurd.
+    background.add_task(
+        health_jobs.run_job,
+        JobRequest(
+            job_id=job["id"],
+            text=manuscript,
+            title=title or None,
+            author=author or None,
+            genre=genre or None,
+            ignored=[item for item in ignored if item.strip()],
+        ),
+    )
+
+    return HealthJobAccepted(job_id=job["id"], status=job["status"])
+
+
+@app.get(
+    "/api/manuscript/health/{job_id}",
+    response_model=HealthJobStatus,
+    responses={
+        401: {"description": "Authentication is enabled and the token is missing or invalid."},
+        404: {"description": "No such scan, or it belongs to another account."},
+        503: {"description": "Health scans are not configured on this deployment."},
+    },
+)
+async def read_manuscript_health(
+    job_id: str,
+    authorization: str | None = Header(default=None),
+) -> HealthJobStatus:
+    """Read one health scan.
+
+    The row is fetched with the caller's own token, so row-level security
+    decides what they may see. A scan belonging to someone else reports 404
+    rather than 403 — the same answer as a scan that does not exist, which
+    keeps this route from confirming that a given job id is real.
+    """
+    try:
+        user = auth.current_user(authorization)
+    except AuthError as exc:
+        raise HTTPException(
+            status_code=401, detail=str(exc), headers={"WWW-Authenticate": "Bearer"}
+        ) from exc
+    except AuthUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    if user is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Health scans need authentication to be configured.",
+        )
+
+    try:
+        row = await health_jobs.read_job(job_id, user)
+    except HealthJobUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except HealthJobError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    if not row:
+        raise HTTPException(status_code=404, detail="No such health scan.")
+
+    return HealthJobStatus(**row)

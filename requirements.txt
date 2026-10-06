@@ -9,11 +9,18 @@ EbookLib>=0.18,<1.0
 # Cover validation. Reads pixel dimensions and colour profile from an uploaded
 # cover; the spine, bleed and safe-area arithmetic is ours, not Pillow's.
 Pillow>=10.0,<12.0
-# Credit metering. httpx reaches the Supabase REST API; PyJWT verifies the
-# caller's session token. Both are only needed by a deployment that turns
-# metering on — with no SUPABASE_JWT_SECRET the backend stays anonymous and
-# charges nobody, and the lazy imports in services/auth.py and
-# services/credits.py keep them out of the way until then. The `crypto` extra is
-# what adds RS256, which is what Supabase's asymmetric signing keys need.
+# Credit metering and the AI manuscript scan. httpx reaches the Supabase REST
+# API and the Anthropic Messages API; PyJWT verifies the caller's session token.
+# Both are only needed by a deployment that turns those features on — with no
+# SUPABASE_JWT_SECRET the backend stays anonymous and charges nobody, and with
+# no ANTHROPIC_API_KEY the health report simply omits the categories that need
+# a model and says so. The lazy imports in services/auth.py, services/credits.py,
+# services/health_ai.py and services/health_jobs.py keep them out of the way
+# until then. The `crypto` extra is what adds RS256, which is what Supabase's
+# asymmetric signing keys need.
+#
+# The Anthropic API is spoken over httpx rather than through the `anthropic`
+# SDK, so switching the AI scan on adds no dependency at all: the request body,
+# the retry ladder and the token accounting all live in services/health_ai.py.
 httpx>=0.27,<1.0
 PyJWT[crypto]>=2.9,<3.0

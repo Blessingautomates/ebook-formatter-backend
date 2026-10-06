@@ -49,9 +49,28 @@ class UploadFile:
         return self._data
 
 
+class BackgroundTasks:
+    """Stands in for the real one, remembering what the route queued.
+
+    Nothing drains these here: the health job is exercised directly by
+    verify_health.py, which is where its own logic belongs. This only has to
+    exist so the route that takes one can be imported and called.
+    """
+
+    def __init__(self):
+        self.tasks = []
+
+    def add_task(self, func, *args, **kwargs):
+        self.tasks.append((func, args, kwargs))
+
+
 fm.FastAPI, fm.HTTPException, fm.UploadFile = FastAPI, HTTPException, UploadFile
+fm.BackgroundTasks = BackgroundTasks
 fm.File = lambda default=None, **kw: default
 fm.Form = lambda default=None, **kw: default
+# Every route takes Header(default=None); the stub returns the default, which is
+# what "no Authorization header sent" means to the real one.
+fm.Header = lambda default=None, **kw: default
 sys.modules["fastapi"] = fm
 
 # main.py imports StreamingResponse from this submodule, so it has to exist too.
